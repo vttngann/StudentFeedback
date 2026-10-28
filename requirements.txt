@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+
+torch
+transformers
+sentencepiece
+
+numpy
+pandas
+scikit-learn
+
+jinja2
+python-multipart
+
+underthesea

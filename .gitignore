@@ -1,0 +1,27 @@
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Local database (may contain private data)
+feedback.db
+
+# Large AI model (upload separately if needed)
+phobert_multitask_best.pt
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+phobert_multitask_best.pt

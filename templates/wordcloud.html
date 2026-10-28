@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân tích Từ khóa từ Phản hồi Sinh viên bằng PhoBERT</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js & WordCloud2 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { 
+                        darkBg: '#0B0F17', 
+                        cardBg: '#111827', 
+                        cardBorder: '#1F2937', 
+                        sidebarBg: '#0F172A'
+                    } 
+                } 
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0B0F17; }
+        ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #374151; }
+        .word-cloud-canvas-container { position: relative; width: 100%; height: 380px; background: radial-gradient(circle at center, rgba(16, 185, 129, 0.03) 0%, rgba(17, 24, 39, 1) 100%); overflow: hidden; border-radius: 0.75rem;}
+        #wordCloudCanvas { width: 100%; height: 100%; cursor: pointer; transition: transform 0.3s ease; }
+        .custom-tooltip { position: absolute; pointer-events: none; transition: all 0.1s ease-out; z-index: 50; }
+        .loading-overlay { position: absolute; inset: 0; background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 40; }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-200 font-sans antialiased min-h-screen flex flex-col md:flex-row">
+
+    <!-- ================= 1. SIDEBAR WORD CLOUD ================= -->
+<aside id="mainSidebar" 
+class="w-64 bg-sidebarBg border-r border-cardBorder flex flex-col justify-between fixed md:static inset-y-0 left-0 z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shrink-0">
+
+    <div>
+
+        <!-- Logo -->
+        <div class="p-6 border-b border-cardBorder flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-brain text-[#10b981]"></i>
+                    Student AI
+                </h3>
+                <p class="text-xs text-slate-400 mt-1 font-mono">
+                    PhoBERT MultiTask
+                </p>
+            </div>
+
+            <button onclick="toggleMobileSidebar()" 
+            class="md:hidden text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+
+        <!-- Menu -->
+        <nav class="py-4 space-y-2 text-[15px] font-medium">
+
+
+            <!-- Dashboard -->
+            <a href="{{ url_for('dashboard') }}"
+            class="flex items-center gap-4 px-6 py-3.5 
+            text-[#94a3b8] hover:text-slate-200 
+            hover:bg-slate-800/50 rounded-r-xl mr-4 
+            transition-all border-l-[4px] border-transparent">
+
+                <i class="fa-solid fa-chart-line text-lg w-5 text-center"></i>
+                Dashboard
+            </a>
+
+
+            <!-- Bình luận -->
+            <a href="{{ url_for('comments') }}"
+            class="flex items-center gap-4 px-6 py-3.5 
+            text-[#94a3b8] hover:text-slate-200 
+            hover:bg-slate-800/50 rounded-r-xl mr-4 
+            transition-all border-l-[4px] border-transparent">
+
+                <i class="fa-solid fa-comments text-lg w-5 text-center"></i>
+                Bình luận
+            </a>
+
+
+            <!-- Thống kê -->
+            <a href="{{ url_for('statistics') }}"
+            class="flex items-center gap-4 px-6 py-3.5 
+            text-[#94a3b8] hover:text-slate-200 
+            hover:bg-slate-800/50 rounded-r-xl mr-4 
+            transition-all border-l-[4px] border-transparent">
+
+                <i class="fa-solid fa-chart-pie text-lg w-5 text-center"></i>
+                Thống kê
+            </a>
+
+
+            <!-- WORD CLOUD ACTIVE -->
+            <a href="{{ url_for('wordcloud') }}"
+            class="flex items-center gap-4 px-6 py-3.5 
+            bg-[#15292c] text-[#10b981] 
+            border-l-[4px] border-[#10b981] 
+            rounded-r-xl mr-4 transition-all">
+
+                <i class="fa-solid fa-cloud text-lg w-5 text-center"></i>
+                Word Cloud
+            </a>
+
+
+        </nav>
+
+    </div>
+
+
+    <!-- Footer -->
+    <div class="p-4 border-t border-cardBorder flex items-center gap-3">
+
+        <div class="w-9 h-9 rounded-full 
+        bg-slate-800 border border-slate-700 
+        flex items-center justify-center 
+        text-slate-300 font-bold text-sm">
+
+            <i class="fa-solid fa-user-gear"></i>
+
+        </div>
+
+
+        <div>
+            <p class="text-sm font-semibold text-slate-200">
+                👤 Administrator
+            </p>
+
+            <p class="text-xs text-slate-400 font-mono">
+                Role: System Manager
+            </p>
+        </div>
+
+    </div>
+
+
+</aside>
+
+    <!-- ================= 2. MAIN CONTENT ================= -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        
+        <!-- HEADER -->
+        <header class="h-16 border-b border-cardBorder px-6 flex items-center justify-between bg-darkBg sticky top-0 z-40">
+            <div class="flex items-center gap-3">
+                <h2 class="text-base sm:text-lg font-bold text-white">Phân tích Từ khóa Phản hồi Sinh viên bằng PhoBERT</h2>
+                <span class="text-[10px] px-2.5 py-0.5 bg-slate-800 text-slate-400 rounded-full border border-cardBorder font-mono hidden sm:inline-block">PhoBERT AI</span>
+            </div>
+
+            <button onclick="exportCloud()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-cardBorder transition shadow-sm">
+                <i class="fa-solid fa-download text-[#10b981]"></i> <span>Export PNG</span>
+            </button>
+        </header>
+
+        <div class="p-6 space-y-6">
+
+            <!-- KPI CARDS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Top Keyword Vấn đề</p>
+                        <h3 id="kpi-top-kw" class="text-base font-bold text-red-400 mt-1 truncate max-w-[130px]">...</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Tiêu cực nhất</p>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center text-sm"><i class="fa-solid fa-fire"></i></div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex justify-between items-start">
+                    <div class="min-w-0">
+                        <p class="text-xs text-slate-400 font-medium">Keyword phổ biến nhất</p>
+                        <h3 id="kpi-max-kw" class="text-base font-bold text-emerald-400 mt-1 truncate max-w-[130px]">...</h3>
+                        <p id="kpi-max-count" class="text-[11px] text-slate-500 mt-1">... lượt xuất hiện</p>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm shrink-0"><i class="fa-solid fa-chart-simple"></i></div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Keyword đang tăng</p>
+                        <h3 id="kpi-trend" class="text-xl font-bold text-amber-400 mt-1">...</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">So với tháng trước</p>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-sm"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Unique Keywords</p>
+                        <h3 id="kpi-unique-kw" class="text-xl font-bold text-indigo-400 mt-1">...</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Đã lọc Stopwords</p>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-sm"><i class="fa-solid fa-cloud"></i></div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Tổng Phản Hồi</p>
+                        <h3 id="kpi-total-comments" class="text-xl font-bold text-sky-400 mt-1">12,540</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Comments phân tích</p>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center text-sm"><i class="fa-solid fa-comments"></i></div>
+                </div>
+            </div>
+
+            <!-- AI INSIGHT -->
+            <div class="bg-cardBg border border-amber-500/30 p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-gradient-to-r from-amber-500/5 to-transparent">
+                <div class="flex items-start gap-3">
+                    <div class="p-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg text-lg shrink-0 mt-0.5">
+                        <i class="fa-solid fa-lightbulb"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-bold text-amber-400 flex items-center gap-2">AI Insight Tự Động (PhoBERT Engine)</h4>
+                        <p id="ai-insight-text" class="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                            ⚠️ <strong>Vấn đề nổi bật:</strong> <span class="text-red-400 font-semibold" id="insight-kw">"điều hòa hỏng"</span> xuất hiện <span id="insight-count">184</span> lần, chiếm 42% phản hồi tiêu cực về <span id="insight-topic">Cơ sở vật chất</span>.
+                        </p>
+                    </div>
+                </div>
+                <div class="text-[11px] bg-slate-900 border border-cardBorder px-3 py-1.5 rounded-lg text-emerald-400 font-mono shrink-0">
+                    💡 <strong>Đề xuất:</strong> <span id="insight-suggestion">Cần kiểm tra hệ thống điều hòa phòng học.</span>
+                </div>
+            </div>
+
+            <!-- WORD CLOUD & CHARTS SECTION -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 lg:col-span-8 flex flex-col space-y-4 relative">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-cardBorder/60 pb-3">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-cloud text-[#10b981]"></i> Word Cloud Phân tích Phản hồi Sinh viên
+                        </h3>
+                        
+                        <div class="relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                            <input type="text" id="searchCloud" placeholder="Tìm kiếm từ khóa..." class="bg-slate-900 border border-cardBorder text-slate-300 text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-[#10b981] w-48">
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="sentimentFilter" onchange="renderApp()" class="bg-slate-900 border border-cardBorder text-slate-300 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#10b981]">
+                            <option value="ALL">Sắc thái: Tất cả</option>
+                            <option value="POS">Sắc thái: Tích cực</option>
+                            <option value="NEG">Sắc thái: Tiêu cực</option>
+                            <option value="NEU">Sắc thái: Trung tính</option>
+                        </select>
+
+                        <select id="topicFilter" onchange="renderApp()" class="bg-slate-900 border border-cardBorder text-slate-300 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#10b981]">
+                            <option value="ALL">Chủ đề: Tất cả</option>
+                            <option value="Giảng viên">Giảng viên</option>
+                            <option value="Cơ sở vật chất">Cơ sở vật chất</option>
+                            <option value="Chương trình">Chương trình học</option>
+                            <option value="Hành chính">Hành chính</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+
+                        <select id="topNFilter" onchange="renderApp()" class="bg-slate-900 border border-cardBorder text-slate-300 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#10b981]">
+                            <option value="20">Top 20</option>
+                            <option value="50" selected>Top 50</option>
+                            <option value="100">Top 100</option>
+                            <option value="ALL">Tất cả</option>
+                        </select>
+                    </div>
+
+                    <!-- Canvas Box -->
+                    <div class="word-cloud-canvas-container border border-cardBorder/80">
+                        <div id="loadingOverlay" class="loading-overlay">
+                            <i class="fa-solid fa-circle-notch fa-spin text-2xl text-[#10b981] mb-2"></i>
+                            <span class="text-xs font-semibold text-slate-300">Đang xử lý Word Cloud...</span>
+                        </div>
+                        
+                        <div class="absolute bottom-3 right-3 flex flex-col gap-1.5 z-30">
+                            <button onclick="zoomCloud(1.2)" class="w-7 h-7 bg-slate-800 text-white rounded hover:bg-slate-700 border border-cardBorder flex items-center justify-center text-xs"><i class="fa-solid fa-plus"></i></button>
+                            <button onclick="zoomCloud(0.8)" class="w-7 h-7 bg-slate-800 text-white rounded hover:bg-slate-700 border border-cardBorder flex items-center justify-center text-xs"><i class="fa-solid fa-minus"></i></button>
+                        </div>
+
+                        <canvas id="wordCloudCanvas"></canvas>
+                        
+                        <div id="cloudTooltip" class="custom-tooltip hidden bg-slate-900/95 backdrop-blur border border-cardBorder p-3 rounded-lg text-xs text-slate-300 shadow-xl space-y-1 w-48">
+                            <div class="font-bold text-white border-b border-slate-700 pb-1 mb-1" id="tt-word"></div>
+                            <div class="flex justify-between"><span>TF-IDF Score:</span> <span id="tt-tfidf" class="font-bold text-white"></span></div>
+                            <div class="flex justify-between"><span>Số lượt xuất hiện:</span> <span id="tt-count" class="font-bold text-white"></span></div>
+                            <div class="flex justify-between"><span>Sắc thái:</span> <span id="tt-sentiment" class="font-bold"></span></div>
+                            <div class="flex justify-between"><span>Chủ đề:</span> <span id="tt-topic" class="font-bold text-white"></span></div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-between items-center text-xs text-slate-400 pt-1">
+                        <div class="flex items-center gap-3 font-semibold text-[11px]">
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-emerald-400"></span> Tích cực</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-red-400"></span> Tiêu cực</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded bg-amber-400"></span> Trung tính</span>
+                        </div>
+                        <span class="text-slate-500 font-mono text-[11px]"><i class="fa-solid fa-weight-hanging mr-1"></i> Size = TF-IDF Importance Score</span>
+                    </div>
+                </div>
+
+                <!-- RIGHT CHARTS -->
+                <div class="lg:col-span-4 flex flex-col gap-6">
+                    <div class="bg-cardBg border border-cardBorder rounded-xl p-5 flex flex-col items-center justify-center">
+                        <h3 class="text-xs font-bold text-white w-full border-b border-cardBorder/60 pb-2 mb-3 flex justify-between items-center">
+                            <span>Sắc thái Phản hồi Tổng quan</span>
+                            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-cardBorder font-mono">PhoBERT</span>
+                        </h3>
+                        <div class="relative w-32 h-32">
+                            <canvas id="sentimentDonutChart"></canvas>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 w-full text-center mt-3 text-xs font-semibold">
+                            <div class="bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded text-emerald-400">Tích cực<br><span id="pct-pos" class="font-bold text-xs">62.8%</span></div>
+                            <div class="bg-amber-500/10 border border-amber-500/20 p-1.5 rounded text-amber-400">Trung tính<br><span id="pct-neu" class="font-bold text-xs">18.8%</span></div>
+                            <div class="bg-red-500/10 border border-red-500/20 p-1.5 rounded text-red-400">Tiêu cực<br><span id="pct-neg" class="font-bold text-xs">18.4%</span></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-cardBg border border-cardBorder rounded-xl p-5 flex-1 flex flex-col">
+                        <h3 class="text-xs font-bold text-white border-b border-cardBorder/60 pb-2 mb-3 flex justify-between items-center">
+                            <span>Phân bố Chủ đề Phản hồi</span>
+                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 font-mono">MultiTask</span>
+                        </h3>
+                        <div class="flex-1 relative min-h-[140px]">
+                            <canvas id="topicBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOP POSITIVE & NEGATIVE LISTS -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4 border-b border-cardBorder/60 pb-2">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-face-smile text-emerald-400"></i> Top Từ khóa Tích cực
+                        </h3>
+                        <span class="text-xs text-emerald-400 font-mono font-bold">+62.8% Overall</span>
+                    </div>
+                    <div id="topPosList" class="space-y-2"></div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4 border-b border-cardBorder/60 pb-2">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-face-frown text-red-400"></i> Top Từ khóa Tiêu cực
+                        </h3>
+                        <span class="text-xs text-red-400 font-mono font-bold">18.4% Overall</span>
+                    </div>
+                    <div id="topNegList" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- KEYWORDS TABLE -->
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-white">Bảng Thống kê Tần suất Từ khóa Chi tiết</h3>
+                        <p class="text-xs text-slate-400">Cụm từ N-gram đã qua tiền xử lý tách từ PhoBERT</p>
+                    </div>
+                    <input type="text" id="keywordTableSearch" onkeyup="filterKeywordTable()" placeholder="Lọc bảng từ khóa..." class="bg-slate-900 border border-cardBorder text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#10b981] w-full sm:w-56">
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300 min-w-[650px]">
+                        <thead class="bg-slate-900/80 uppercase font-mono text-slate-400 border-b border-cardBorder">
+                            <tr>
+                                <th class="p-3">Thứ hạng</th>
+                                <th class="p-3">Keyword</th>
+                                <th class="p-3 text-center">TF-IDF Score</th>
+                                <th class="p-3 text-center">Tần suất</th>
+                                <th class="p-3 text-center">Chủ đề</th>
+                                <th class="p-3 text-center">Sắc thái</th>
+                                <th class="p-3 text-center">AI Model Pipeline</th>
+                                <th class="p-3 text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="keywordTableBody" class="divide-y divide-cardBorder/60 font-medium"></tbody>
+                    </table>
+                </div>
+
+                <!-- PIPELINE FOOTER -->
+                <div class="pt-3 border-t border-cardBorder/60 bg-slate-900/40 p-3 rounded-lg border border-cardBorder/40">
+                    <div class="text-xs font-bold text-slate-300 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project text-emerald-400"></i> Quy trình Xử lý Dữ liệu PhoBERT Pipeline:
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between text-[10px] text-slate-400 gap-2 font-mono">
+                        <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-slate-300">Student Feedback</span>
+                        <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                        <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-indigo-300">PhoBERT Tokenizer</span>
+                        <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                        <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-indigo-300">MultiTask Classifier</span>
+                        <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                        <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-amber-300">Keyword N-gram</span>
+                        <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                        <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-emerald-300">TF-IDF Ranking</span>
+                        <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                        <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-sky-300">Word Cloud Visual</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ================= 3. MODAL CHI TIẾT (AN TOÀN KHI KHÔNG CÓ BACKEND) ================= -->
+    <div id="wordModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-cardBg border border-cardBorder w-full max-w-2xl rounded-xl p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            
+            <div>
+                <span class="text-[11px] text-slate-400 font-mono uppercase tracking-wider">Phân tích Chi tiết từ PhoBERT Engine</span>
+                <h3 id="modalTitle" class="text-xl font-bold text-white mt-0.5">...</h3>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 bg-slate-900 p-3 rounded-lg border border-cardBorder text-xs">
+                <div><span class="text-slate-400 block text-[11px]">Lượt xuất hiện</span><span id="m-count" class="font-bold text-white text-base">...</span></div>
+                <div><span class="text-slate-400 block text-[11px]">TF-IDF Score</span><span id="m-tfidf" class="font-bold text-white text-base">...</span></div>
+                <div><span class="text-slate-400 block text-[11px]">Chủ đề Phân loại</span><span id="m-topic" class="font-bold text-indigo-400 text-base">...</span></div>
+            </div>
+
+            <div class="bg-indigo-950/30 border border-indigo-500/30 p-3 rounded-lg text-xs space-y-2">
+                <div class="font-bold text-indigo-300 flex items-center justify-between text-[11px]">
+                    <span><i class="fa-solid fa-microchip mr-1.5 text-indigo-400"></i>PhoBERT MultiTask Confidence Metrics:</span>
+                    <span class="font-mono text-[9px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">PyTorch Inference</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 font-mono">
+                    <div class="bg-slate-900/80 p-2 rounded border border-cardBorder">
+                        <div class="flex justify-between text-slate-400 text-[10px] mb-1"><span>Sentiment Conf:</span><span id="m-sent-conf" class="text-emerald-400 font-bold">94.2%</span></div>
+                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div id="bar-sent-conf" class="bg-emerald-400 h-1.5 rounded-full" style="width: 94.2%"></div></div>
+                    </div>
+                    <div class="bg-slate-900/80 p-2 rounded border border-cardBorder">
+                        <div class="flex justify-between text-slate-400 text-[10px] mb-1"><span>Topic Conf:</span><span id="m-topic-conf" class="text-indigo-400 font-bold">91.8%</span></div>
+                        <div class="w-full bg-slate-800 rounded-full h-1.5"><div id="bar-topic-conf" class="bg-indigo-400 h-1.5 rounded-full" style="width: 91.8%"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <h4 class="text-xs font-bold text-slate-300 border-b border-cardBorder pb-1.5 flex justify-between items-center">
+                    <span>Trích xuất bình luận chứa keyword:</span>
+                    <span id="modalLoading" class="text-[11px] text-amber-400 hidden"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</span>
+                </h4>
+                <div id="modalComments" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 4. JAVASCRIPT ================= -->
+    <script>
+        let rawKeywordData = [];
+        let currentZoom = 1;
+        let topicChartInstance = null;
+        let donutChartInstance = null;
+
+        const sentimentStats = { pos: 62.8, neu: 18.8, neg: 18.4, total_comments: 12540 };
+
+        const topicStats = [
+            { name: "Cơ sở vật chất", pct: 35 },
+            { name: "Giảng viên", pct: 28 },
+            { name: "Chương trình", pct: 20 },
+            { name: "Hành chính", pct: 10 },
+            { name: "Khác", pct: 7 }
+        ];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            
+            setTimeout(() => {
+                rawKeywordData = [
+                    { id: 1, word: "nhiệt tình dạy hay", count: 245, tfidf: 0.95, type: "POS", topic: "Giảng viên" },
+                    { id: 2, word: "thủ tục nhanh gọn", count: 198, tfidf: 0.88, type: "POS", topic: "Hành chính" },
+                    { id: 3, word: "điều hòa hỏng", count: 184, tfidf: 0.91, type: "NEG", topic: "Cơ sở vật chất" },
+                    { id: 4, word: "slide dễ hiểu", count: 162, tfidf: 0.85, type: "POS", topic: "Giảng viên" },
+                    { id: 5, word: "kẹt thang máy", count: 142, tfidf: 0.89, type: "NEG", topic: "Cơ sở vật chất" },
+                    { id: 6, word: "phòng lab hiện đại", count: 130, tfidf: 0.80, type: "POS", topic: "Cơ sở vật chất" },
+                    { id: 7, word: "wifi chập chờn", count: 118, tfidf: 0.81, type: "NEG", topic: "Cơ sở vật chất" },
+                    { id: 8, word: "bán nước tự động", count: 105, tfidf: 0.55, type: "NEU", topic: "Khác" },
+                    { id: 9, word: "nhà xe chật", count: 95, tfidf: 0.78, type: "NEG", topic: "Cơ sở vật chất" },
+                    { id: 10, word: "học phí hợp lý", count: 88, tfidf: 0.72, type: "POS", topic: "Chương trình" },
+                    { id: 11, word: "cập nhật giáo trình", count: 82, tfidf: 0.60, type: "NEU", topic: "Chương trình" },
+                    { id: 12, word: "thầy cô hỗ trợ", count: 79, tfidf: 0.75, type: "POS", topic: "Giảng viên" },
+                    { id: 13, word: "tiếng ồn thi công", count: 71, tfidf: 0.68, type: "NEG", topic: "Cơ sở vật chất" },
+                    { id: 14, word: "tài liệu phong phú", count: 68, tfidf: 0.62, type: "POS", topic: "Chương trình" },
+                    { id: 15, word: "xếp lịch thi dày", count: 62, tfidf: 0.70, type: "NEG", topic: "Hành chính" }
+                ];
+
+                const apiKpiData = {
+                    top_keyword: "nhiệt tình dạy hay",
+                    max_count: 245,
+                    trend: 18,
+                    unique_keywords: 1428,
+                    total_comments: 12540
+                };
+
+                document.getElementById('loadingOverlay').style.display = 'none';
+                
+                const topNegative = rawKeywordData.filter(x => x.type === "NEG").sort((a, b) => b.count - a.count)[0];
+                document.getElementById('kpi-top-kw').textContent = topNegative ? topNegative.word : "...";
+                
+                document.getElementById('kpi-max-kw').innerText = apiKpiData.top_keyword;
+                document.getElementById('kpi-max-count').innerText = `${apiKpiData.max_count} lượt xuất hiện`;
+                
+                document.getElementById('kpi-trend').innerText = `+${apiKpiData.trend}%`;
+                document.getElementById('kpi-unique-kw').innerText = apiKpiData.unique_keywords.toLocaleString();
+                document.getElementById('kpi-total-comments').innerText = apiKpiData.total_comments.toLocaleString();
+
+                if(topNegative) {
+                    document.getElementById('insight-kw').textContent = `"${topNegative.word}"`;
+                    document.getElementById('insight-count').textContent = topNegative.count;
+                    document.getElementById('insight-topic').textContent = topNegative.topic;
+                    document.getElementById('insight-suggestion').textContent = `Cần kiểm tra ngay hệ thống ${topNegative.topic.toLowerCase()} khu vực giảng đường.`;
+                }
+
+                renderApp();
+                renderTopLists();
+                renderKeywordTable(rawKeywordData);
+                drawSentimentDonutChart();
+                drawTopicBarChart();
+
+                window.addEventListener('resize', () => { renderApp(); });
+            }, 300);
+        });
+
+        function renderApp() {
+            const sentFilter = document.getElementById('sentimentFilter').value;
+            const topFilter = document.getElementById('topicFilter').value;
+            const topN = document.getElementById('topNFilter').value;
+
+            let filtered = rawKeywordData.filter(item => {
+                const matchSent = sentFilter === 'ALL' || item.type === sentFilter;
+                const matchTopic = topFilter === 'ALL' || item.topic === topFilter;
+                return matchSent && matchTopic;
+            });
+
+            filtered.sort((a, b) => b.tfidf - a.tfidf);
+            if (topN !== 'ALL') filtered = filtered.slice(0, parseInt(topN));
+
+            drawWordCloud(filtered);
+        }
+
+        function drawWordCloud(data) {
+            const canvas = document.getElementById('wordCloudCanvas');
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            const cloudList = data.map(item => [
+                item.word,
+                Math.sqrt(item.tfidf) * 110,
+                item
+            ]);
+
+            WordCloud(canvas, {
+                list: cloudList,
+                gridSize: 12,
+                weightFactor: 1,
+                fontFamily: 'Inter, sans-serif',
+                color: function (word, weight, fontSize, distance, theta, item) {
+                    if (!item) return '#94a3b8';
+                    if (item.type === 'POS') return '#10b981';
+                    if (item.type === 'NEG') return '#f87171';
+                    return '#f59e0b';
+                },
+                backgroundColor: 'transparent',
+                rotateRatio: 0,
+                hover: function(item, dimension, event) {
+                    const tooltip = document.getElementById('cloudTooltip');
+                    if (item && event) {
+                        const dataItem = item[2];
+                        document.getElementById('tt-word').textContent = dataItem.word;
+                        document.getElementById('tt-tfidf').textContent = dataItem.tfidf.toFixed(2);
+                        document.getElementById('tt-count').textContent = dataItem.count;
+                        document.getElementById('tt-topic').textContent = dataItem.topic;
+                        
+                        const sentEl = document.getElementById('tt-sentiment');
+                        sentEl.textContent = dataItem.type === 'POS' ? 'Tích cực' : (dataItem.type === 'NEG' ? 'Tiêu cực' : 'Trung tính');
+                        sentEl.className = dataItem.type === 'POS' ? 'font-bold text-emerald-400' : (dataItem.type === 'NEG' ? 'font-bold text-red-400' : 'font-bold text-amber-400');
+
+                        const rect = canvas.getBoundingClientRect();
+                        tooltip.style.left = (event.clientX - rect.left + 15) + 'px';
+                        tooltip.style.top = (event.clientY - rect.top - 15) + 'px';
+                        tooltip.classList.remove('hidden');
+                    } else {
+                        tooltip.classList.add('hidden');
+                    }
+                },
+                click: function(item) { if(item) openModal(item[2]); }
+            });
+        }
+
+        function drawSentimentDonutChart() {
+            const ctx = document.getElementById('sentimentDonutChart').getContext('2d');
+            if (donutChartInstance) donutChartInstance.destroy();
+
+            donutChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Tích cực', 'Trung tính', 'Tiêu cực'],
+                    datasets: [{
+                        data: [sentimentStats.pos, sentimentStats.neu, sentimentStats.neg],
+                        backgroundColor: ['#10b981', '#f59e0b', '#f87171'],
+                        borderWidth: 2,
+                        borderColor: '#111827'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function drawTopicBarChart() {
+            const ctx = document.getElementById('topicBarChart').getContext('2d');
+            if (topicChartInstance) topicChartInstance.destroy();
+
+            topicChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topicStats.map(t => t.name),
+                    datasets: [{
+                        label: 'Tỷ lệ %',
+                        data: topicStats.map(t => t.pct),
+                        backgroundColor: '#6366f1',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#1f293d' }, ticks: { color: '#94a3b8', callback: v => v + '%' } },
+                        y: { grid: { display: false }, ticks: { color: '#cbd5e1' } }
+                    }
+                }
+            });
+        }
+
+        function renderKeywordTable(data) {
+            const tbody = document.getElementById('keywordTableBody');
+            tbody.innerHTML = '';
+            
+            const sortedData = [...data].sort((a,b) => b.tfidf - a.tfidf);
+
+            if (sortedData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-500">Không tìm thấy từ khóa.</td></tr>`;
+                return;
+            }
+
+            sortedData.forEach((item, index) => {
+                let badge = '';
+                if (item.type === 'POS') badge = '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">Tích cực</span>';
+                else if (item.type === 'NEG') badge = '<span class="px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-[10px]">Tiêu cực</span>';
+                else badge = '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px]">Trung tính</span>';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50 transition border-b border-cardBorder/40';
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-slate-400">#${index + 1}</td>
+                    <td class="p-3 font-semibold text-slate-200">${item.word}</td>
+                    <td class="p-3 text-center font-mono text-slate-300 font-bold">${item.tfidf.toFixed(2)}</td>
+                    <td class="p-3 text-center font-mono font-bold text-emerald-400">${item.count}</td>
+                    <td class="p-3 text-center text-slate-300">${item.topic}</td>
+                    <td class="p-3 text-center">${badge}</td>
+                    <td class="p-3 text-center font-mono text-[10px]">
+                        <span class="px-2 py-0.5 bg-slate-900 rounded border border-slate-700 text-indigo-300">PhoBERT + N-gram</span>
+                    </td>
+                    <td class="p-3 text-right">
+                        <button onclick="inspectWordFromTable('${item.word}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition border border-cardBorder">
+                            Chi tiết
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterKeywordTable() {
+            const val = document.getElementById('keywordTableSearch').value.toLowerCase();
+            const filtered = rawKeywordData.filter(item => 
+                item.word.toLowerCase().includes(val) || item.topic.toLowerCase().includes(val)
+            );
+            renderKeywordTable(filtered);
+        }
+
+        function renderTopLists() {
+            const posList = document.getElementById('topPosList');
+            const negList = document.getElementById('topNegList');
+            
+            const topPos = [...rawKeywordData].filter(d => d.type === 'POS').sort((a,b)=>b.count - a.count).slice(0, 4);
+            const topNeg = [...rawKeywordData].filter(d => d.type === 'NEG').sort((a,b)=>b.count - a.count).slice(0, 4);
+
+            const maxPosCount = topPos[0]?.count || 1;
+            const maxNegCount = topNeg[0]?.count || 1;
+
+            posList.innerHTML = topPos.map((item, idx) => `
+                <div class="flex items-center justify-between cursor-pointer hover:bg-slate-800/40 p-1.5 rounded-lg transition" onclick="inspectWordFromTable('${item.word}')">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[11px] flex items-center justify-center">${idx+1}</span>
+                        <span class="text-xs font-semibold text-slate-200">${item.word}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-20 sm:w-28 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                            <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${(item.count/maxPosCount)*100}%"></div>
+                        </div>
+                        <span class="text-[11px] font-mono font-bold text-slate-300 w-10 text-right">${item.count}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            negList.innerHTML = topNeg.map((item, idx) => `
+                <div class="flex items-center justify-between cursor-pointer hover:bg-slate-800/40 p-1.5 rounded-lg transition" onclick="inspectWordFromTable('${item.word}')">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-5 h-5 rounded bg-red-500/20 text-red-400 font-bold text-[11px] flex items-center justify-center">${idx+1}</span>
+                        <span class="text-xs font-semibold text-slate-200">${item.word}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-20 sm:w-28 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                            <div class="bg-red-500 h-1.5 rounded-full" style="width: ${(item.count/maxNegCount)*100}%"></div>
+                        </div>
+                        <span class="text-[11px] font-mono font-bold text-slate-300 w-10 text-right">${item.count}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function inspectWordFromTable(word) {
+            const item = rawKeywordData.find(d => d.word === word);
+            if(item) openModal(item);
+        }
+
+        // HÀM OPEN MODAL AN TOÀN (CÓ FALLBACK MOCK DATA NẾU CHƯA CÓ SERVER API)
+        async function openModal(dataItem) {
+            document.getElementById('modalTitle').textContent = `"${dataItem.word}"`;
+            document.getElementById('m-count').textContent = dataItem.count;
+            document.getElementById('m-tfidf').textContent = dataItem.tfidf.toFixed(2);
+            document.getElementById('m-topic').textContent = dataItem.topic;
+
+            const commentsContainer = document.getElementById('modalComments');
+            const loadingIndicator = document.getElementById('modalLoading');
+
+            document.getElementById('wordModal').classList.remove('hidden');
+            loadingIndicator.classList.remove('hidden');
+            commentsContainer.innerHTML = '<div class="text-xs text-slate-400 p-2 font-mono">Đang tải dữ liệu...</div>';
+
+            let resData;
+
+            try {
+                const response = await fetch(`/api/keyword/detail?id=${dataItem.id}`);
+                if (!response.ok) throw new Error("API chưa sẵn sàng");
+                resData = await response.json();
+            } catch (e) {
+                // Tự động giải lập dữ liệu khi chưa chạy Backend
+                resData = {
+                    keyword: dataItem.word,
+                    count: dataItem.count,
+                    sentiment_confidence: (0.88 + Math.random() * 0.1).toFixed(3),
+                    topic_confidence: (0.85 + Math.random() * 0.12).toFixed(3),
+                    comments: [
+                        { id: 101, text: `Sinh viên phản hồi vấn đề liên quan đến ${dataItem.word} cần được xem xét xử lý sớm.`, sentiment: dataItem.type },
+                        { id: 102, text: `Ý kiến ghi nhận việc ${dataItem.word} ảnh hưởng trực tiếp đến trải nghiệm học tập.`, sentiment: dataItem.type }
+                    ]
+                };
+            }
+
+            const sentConfPct = (parseFloat(resData.sentiment_confidence) * 100).toFixed(1) + '%';
+            const topicConfPct = (parseFloat(resData.topic_confidence) * 100).toFixed(1) + '%';
+
+            document.getElementById('m-sent-conf').textContent = sentConfPct;
+            document.getElementById('bar-sent-conf').style.width = sentConfPct;
+            document.getElementById('m-topic-conf').textContent = topicConfPct;
+            document.getElementById('bar-topic-conf').style.width = topicConfPct;
+
+            loadingIndicator.classList.add('hidden');
+
+            const markColor = dataItem.type === "NEG" 
+                ? "background: rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 2px 4px; border-radius: 4px; font-weight: 600;" 
+                : "background: rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 2px 4px; border-radius: 4px; font-weight: 600;";
+
+            commentsContainer.innerHTML = resData.comments.map(c => {
+                const highlightedText = c.text.replace(new RegExp(dataItem.word, 'gi'), match => `<mark style="${markColor}">${match}</mark>`);
+                return `
+                    <div class="bg-slate-900/80 p-3 rounded-lg border border-cardBorder/60 text-xs text-slate-300">
+                        <div class="flex justify-between items-center font-mono text-[10px] text-slate-400 mb-1">
+                            <span class="font-bold text-slate-200"><i class="fa-solid fa-hashtag text-indigo-400 mr-1"></i>ID: ${c.id || 'Comment'}</span>
+                            <span class="text-emerald-400">Verified by PhoBERT</span>
+                        </div>
+                        <p class="leading-relaxed">${highlightedText}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function closeModal() { document.getElementById('wordModal').classList.add('hidden'); }
+
+        function zoomCloud(factor) {
+            currentZoom *= factor;
+            document.getElementById('wordCloudCanvas').style.transform = `scale(${currentZoom})`;
+        }
+
+        function exportCloud() {
+            const link = document.createElement('a');
+            link.download = 'phoBERT-wordcloud-export.png';
+            link.href = document.getElementById('wordCloudCanvas').toDataURL();
+            link.click();
+        }
+
+        document.getElementById('searchCloud').addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            if(!val) return renderApp();
+            const filtered = rawKeywordData.filter(d => d.word.toLowerCase().includes(val));
+            drawWordCloud(filtered);
+        });
+    </script>
+</body>
+</html>

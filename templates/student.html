@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hòm Thư Góp Ý Sinh Viên - CTUT</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0a0e17',
+                        cardBg: '#111827',
+                        cardBorder: '#1f293d',
+                        sidebarBg: '#0f172a'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0e17; }
+        ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+        /* Animation xuất hiện icon check thành công (scale + rotate + fade in) */
+        @keyframes checkIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3) rotate(-45deg);
+            }
+            70% {
+                opacity: 1;
+                transform: scale(1.2) rotate(10deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+        .animate-check-success {
+            animation: checkIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-200 min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden font-sans antialiased">
+
+    <!-- Hiệu ứng ánh sáng nền (Glow Effect) -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-lg w-full bg-cardBg border border-cardBorder rounded-2xl shadow-2xl shadow-emerald-500/5 overflow-hidden relative z-10 backdrop-blur-md flex flex-col my-6">
+        
+        <!-- Header với Logo trường CTUT -->
+        <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-6 text-white text-center relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 opacity-10 text-8xl">
+                <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            
+            <!-- Logo Trường & Tag CTUT -->
+            <div class="inline-flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full border border-white/20 mb-3 backdrop-blur-sm">
+                <span class="font-bold text-xs tracking-wider text-emerald-200">CTUT</span>
+                <span class="text-xs text-white/50">•</span>
+                <span class="text-xs font-medium text-white/90">Trường ĐH KT-CN Cần Thơ</span>
+            </div>
+
+            <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
+                <i class="fa-solid fa-envelope-open-text text-xl"></i>
+                Hòm Thư Góp Ý Sinh Viên
+            </h1>
+            <p class="text-emerald-100 text-xs md:text-sm mt-1 max-w-xs mx-auto">Ý kiến của bạn giúp nhà trường nâng cao chất lượng đào tạo & phục vụ</p>
+        </div>
+
+        <!-- Form Gửi Phản Hồi -->
+        <form id="feedbackForm" onsubmit="submitFeedback(event)" class="p-6 space-y-5">
+            
+            <!-- 1. Danh mục góp ý -->
+            <div>
+                <label for="category" class="block text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-emerald-400"></i>
+                    Danh mục góp ý
+                </label>
+                <select
+                    id="category"
+                    class="w-full p-3 bg-slate-900 border border-cardBorder rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm text-slate-200 outline-none transition cursor-pointer">
+                    <option value="Giảng viên">Giảng viên</option>
+                    <option value="Cơ sở vật chất">Cơ sở vật chất</option>
+                    <option value="Chương trình học">Chương trình học</option>
+                    <option value="Hành chính">Hành chính</option>
+                    <option value="Khác">Khác</option>
+                </select>
+            </div>
+
+            <!-- Nội dung phản hồi -->
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label for="comment" class="block text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-comments text-emerald-400"></i>
+                        💬 Nội dung phản hồi / góp ý
+                    </label>
+                    <!-- 2. Đếm số ký tự -->
+                    <span id="charCounter" class="text-xs font-mono text-slate-400">0 / 1000 ký tự</span>
+                </div>
+
+                <textarea 
+                    id="comment" 
+                    rows="5" 
+                    required 
+                    maxlength="1000"
+                    placeholder="Ví dụ:&#10;• Máy lạnh phòng B202 không hoạt động.&#10;• Giảng viên giảng dễ hiểu nhưng tốc độ hơi nhanh.&#10;• Cần bổ sung nhiều tài liệu thực hành hơn."
+                    class="w-full p-3.5 bg-slate-900/80 border border-cardBorder rounded-xl focus:ring-2 focus:ring-emerald-500 focus:shadow-lg focus:shadow-emerald-500/20 focus:border-emerald-500 outline-none transition duration-300 text-sm text-slate-100 placeholder-slate-500/80 resize-none"
+                ></textarea>
+
+                <!-- 4. Lưu ý bảo mật -->
+                <p class="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lock text-emerald-400/80 text-xs"></i>
+                    🔒 Phản hồi được gửi ẩn danh và chỉ phục vụ cải thiện chất lượng đào tạo.
+                </p>
+            </div>
+
+            <!-- 14. Thanh tiến trình gửi & AI Phân tích (Ẩn mặc định) -->
+            <div id="progressContainer" class="hidden space-y-2 pt-1">
+                <div class="flex justify-between text-xs text-slate-300 font-mono">
+                    <span id="progressStatusText" class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-spinner animate-spin text-emerald-400"></i>
+                        Đang chuẩn bị...
+                    </span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div id="progressBarFill" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <!-- Nút gửi phản hồi -->
+            <button 
+                type="submit" 
+                id="submitBtn"
+                class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-900/30 transition duration-200 flex items-center justify-center space-x-2 border border-emerald-500/30 cursor-pointer"
+            >
+                <i id="btnIcon" class="fa-solid fa-paper-plane"></i>
+                <span id="btnText">Gửi Phản Hồi</span>
+            </button>
+        </form>
+
+        <!-- Màn hình gửi thành công -->
+        <div id="successState" class="hidden p-8 text-center space-y-6">
+            
+            <!-- Icon check hiệu ứng scale + rotate + fade in -->
+            <div class="w-20 h-20 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto text-3xl shadow-lg shadow-emerald-500/10 animate-check-success">
+                <i class="fa-solid fa-check"></i>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="text-2xl font-bold text-white">Cảm ơn bạn đã góp ý!</h2>
+                <p class="text-slate-400 text-xs md:text-sm">Ý kiến của bạn đã được tiếp nhận và xử lý thời gian thực.</p>
+            </div>
+
+            <!-- Danh sách xác nhận -->
+            <div class="bg-slate-900/70 border border-cardBorder rounded-xl p-4 text-left space-y-2.5 text-xs md:text-sm text-slate-300">
+                <div class="flex items-center gap-2 text-emerald-400 font-medium">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>✓ Phản hồi đã được lưu an toàn.</span>
+                </div>
+                <div class="flex items-center gap-2 text-emerald-400 font-medium">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>✓ AI PhoBERT đã tự động phân tích cảm xúc & chủ đề.</span>
+                </div>
+                <div class="flex items-center gap-2 text-emerald-400 font-medium">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>✓ Dữ liệu được cập nhật tức thì vào Dashboard.</span>
+                </div>
+            </div>
+
+            <div class="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+                <button 
+                    onclick="resetForm()" 
+                    class="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs md:text-sm font-medium py-3 px-5 rounded-xl transition border border-cardBorder cursor-pointer flex items-center justify-center gap-2"
+                >
+                    <i class="fa-solid fa-rotate-left"></i>
+                    Gửi thêm góp ý khác
+                </button>
+                <a 
+                    href="/" 
+                    class="w-full sm:w-auto bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs md:text-sm font-medium py-3 px-5 rounded-xl transition border border-emerald-500/30 flex items-center justify-center gap-2"
+                >
+                    <i class="fa-solid fa-house"></i>
+                    Trang chủ
+                </a>
+            </div>
+        </div>
+
+        <!-- 15. Nút Quay về Trang chủ ở dưới form -->
+        <div id="backHomeFooter" class="px-6 pb-4 text-center">
+            <a href="/" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition">
+                <i class="fa-solid fa-arrow-left"></i>
+                Quay về Trang chủ
+            </a>
+        </div>
+
+        <!-- 10. Footer nâng cấp -->
+        <div class="bg-slate-900/80 border-t border-cardBorder p-4 text-center text-xs text-slate-400 space-y-1">
+            <p class="font-semibold text-slate-300">Student Feedback AI System</p>
+            <p class="text-[11px] text-slate-500 font-mono">PhoBERT MultiTask • Flask • MongoDB</p>
+        </div>
+    </div>
+
+    <script>
+        const commentInput = document.getElementById("comment");
+        const charCounter = document.getElementById("charCounter");
+        const submitBtn = document.getElementById("submitBtn");
+        const btnText = document.getElementById("btnText");
+        const btnIcon = document.getElementById("btnIcon");
+        const progressContainer = document.getElementById("progressContainer");
+        const progressBarFill = document.getElementById("progressBarFill");
+        const progressStatusText = document.getElementById("progressStatusText");
+        const progressPercent = document.getElementById("progressPercent");
+
+        // 2. Cập nhật số ký tự thời gian thực
+        commentInput.addEventListener("input", () => {
+            const currentLength = commentInput.value.length;
+            charCounter.innerText = `${currentLength} / 1000 ký tự`;
+            
+            if (currentLength >= 900) {
+                charCounter.classList.add("text-amber-400");
+            } else {
+                charCounter.classList.remove("text-amber-400");
+            }
+        });
+
+        // Hàm giả lập tiến trình gửi + phân tích AI
+        function updateProgress(percent, text) {
+            progressBarFill.style.width = `${percent}%`;
+            progressPercent.innerText = `${percent}%`;
+            progressStatusText.innerHTML = `<i class="fa-solid fa-spinner animate-spin text-emerald-400"></i> ${text}`;
+        }
+
+        async function submitFeedback(event) {
+            event.preventDefault();
+
+            const text = commentInput.value.trim();
+            const category = document.getElementById("category").value;
+
+            if (!text) return;
+
+            // Khóa giao diện & hiện thanh tiến trình
+            submitBtn.disabled = true;
+            submitBtn.classList.add("opacity-80", "cursor-not-allowed");
+            progressContainer.classList.remove("hidden");
+
+            // Tiến trình giai đoạn 1: Đang đóng gói dữ liệu
+            updateProgress(25, "Đang gửi phản hồi...");
+            btnIcon.className = "fa-solid fa-spinner animate-spin";
+            btnText.innerText = "Đang gửi...";
+
+            await new Promise(r => setTimeout(r, 400));
+
+            // Tiến trình giai đoạn 2: Phân tích bằng AI PhoBERT
+            updateProgress(72, "⏳ Đang phân tích bằng AI PhoBERT...");
+            btnText.innerText = "AI PhoBERT đang phân tích...";
+
+            try {
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ 
+                        text: text,
+                        category: category 
+                    })
+                });
+
+                // Tiến trình hoàn tất 100%
+                updateProgress(100, "Xử lý hoàn tất!");
+                await new Promise(r => setTimeout(r, 300));
+
+                if (response.ok) {
+                    // Chuyển sang màn hình thành công
+                    document.getElementById("feedbackForm").classList.add("hidden");
+                    document.getElementById("backHomeFooter").classList.add("hidden");
+                    document.getElementById("successState").classList.remove("hidden");
+                } else {
+                    alert("Có lỗi xảy ra từ phía máy chủ, vui lòng thử lại!");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Không thể kết nối đến máy chủ!");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove("opacity-80", "cursor-not-allowed");
+                btnIcon.className = "fa-solid fa-paper-plane";
+                btnText.innerText = "Gửi Phản Hồi";
+                progressContainer.classList.add("hidden");
+                updateProgress(0, "");
+            }
+        }
+
+        function resetForm() {
+            document.getElementById("comment").value = "";
+            charCounter.innerText = "0 / 1000 ký tự";
+            document.getElementById("category").selectedIndex = 0;
+            document.getElementById("feedbackForm").classList.remove("hidden");
+            document.getElementById("backHomeFooter").classList.remove("hidden");
+            document.getElementById("successState").classList.add("hidden");
+        }
+    </script>
+</body>
+</html>

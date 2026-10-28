@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thống kê & Phân tích - Student Feedback AI</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0a0e17',
+                        cardBg: '#111827',
+                        cardBorder: '#1f293d',
+                        sidebarBg: '#0f172a'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0e17; }
+        ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #374151; }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-200 font-sans antialiased min-h-screen flex relative overflow-x-hidden">
+
+    <!-- Backdrop Overlay cho Mobile Navigation -->
+    <div id="sidebarOverlay" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden transition-opacity"></div>
+
+    <!-- ================= 1. SIDEBAR NAVIGATION ================= -->
+    <aside id="mainSidebar" class="w-64 bg-sidebarBg border-r border-cardBorder flex flex-col justify-between fixed md:static inset-y-0 left-0 z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shrink-0">
+        <div>
+            <!-- Logo Header -->
+            <div class="p-6 border-b border-cardBorder flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-brain text-[#10b981]"></i> Student AI
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1 font-mono">PhoBERT MultiTask</p>
+                </div>
+                <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Sidebar Menu -->
+            <nav class="py-4 space-y-2 text-[15px] font-medium">
+                <a href="{{ url_for('dashboard') }}" class="flex items-center gap-4 px-6 py-3.5 text-[#94a3b8] hover:text-slate-200 hover:bg-slate-800/50 rounded-r-xl mr-4 transition-all border-l-[4px] border-transparent">
+                    <i class="fa-solid fa-chart-line text-lg w-5 text-center"></i> 
+                    Dashboard
+                </a>
+                
+                <a href="{{ url_for('comments') }}" class="flex items-center gap-4 px-6 py-3.5 text-[#94a3b8] hover:text-slate-200 hover:bg-slate-800/50 rounded-r-xl mr-4 transition-all border-l-[4px] border-transparent">
+                    <i class="fa-solid fa-comments text-lg w-5 text-center"></i> 
+                    Bình luận
+                </a>
+                
+                <a href="{{ url_for('statistics') }}" class="flex items-center gap-4 px-6 py-3.5 bg-[#15292c] text-[#10b981] border-l-[4px] border-[#10b981] rounded-r-xl mr-4 transition-all">
+                    <i class="fa-solid fa-chart-pie text-lg w-5 text-center"></i> 
+                    Thống kê
+                </a>
+                
+                <a href="{{ url_for('wordcloud') }}" class="flex items-center gap-4 px-6 py-3.5 text-[#94a3b8] hover:text-slate-200 hover:bg-slate-800/50 rounded-r-xl mr-4 transition-all border-l-[4px] border-transparent">
+                    <i class="fa-solid fa-cloud text-lg w-5 text-center"></i> 
+                    Word Cloud
+                </a>
+            </nav>
+        </div>
+        
+        <!-- User Profile Footer -->
+        <div class="p-4 border-t border-cardBorder flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold text-sm">
+                <i class="fa-solid fa-user-gear"></i>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-slate-200">👤 Administrator</p>
+                <p class="text-xs text-slate-400 font-mono">Role: System Manager</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ================= 2. MAIN CONTENT AREA ================= -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        
+        <!-- HEADER BAR WITH FILTERS -->
+        <header class="h-16 border-b border-cardBorder px-4 sm:px-6 flex items-center justify-between bg-sidebarBg/50 backdrop-blur sticky top-0 z-40">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-300 hover:text-white p-2 rounded-lg bg-slate-800/60 border border-cardBorder">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <h2 class="text-base sm:text-lg font-bold text-white truncate">Thống kê & Phân tích Chi tiết</h2>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <select id="facultyFilterSelect" onchange="applyAllFilters()" class="bg-slate-900 border border-cardBorder text-slate-300 text-xs rounded-lg px-2.5 py-2 focus:outline-none focus:border-[#10b981] cursor-pointer">
+                    <option value="all">[Tất cả Khoa]</option>
+                    <option value="cntt">CNTT</option>
+                    <option value="kinhte">Kinh tế</option>
+                    <option value="ngoaingu">Ngoại ngữ</option>
+                </select>
+
+                <select id="timeRangeSelect" onchange="applyAllFilters()" class="bg-slate-900 border border-cardBorder text-slate-300 text-xs rounded-lg px-2.5 py-2 focus:outline-none focus:border-[#10b981] cursor-pointer">
+                    <option value="today" selected>Hôm nay</option>
+                    <option value="all">Tất cả dữ liệu</option>
+                </select>
+
+                <button onclick="exportCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-2 border border-cardBorder transition">
+                    <i class="fa-solid fa-download text-[#10b981]"></i> <span class="hidden sm:inline">Xuất CSV</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="p-4 sm:p-6 space-y-6">
+
+            <!-- KPI STATS CARDS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-cardBg border border-cardBorder p-5 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Tổng ý kiến tiếp nhận</p>
+                        <h3 id="statTotal" class="text-2xl font-bold text-white mt-1">{{ total_feedback if total_feedback is defined else 0 }}</h3>
+                        <p class="text-xs text-emerald-400 mt-2 flex items-center gap-1">
+                            <i class="fa-solid fa-arrow-trend-up"></i> +100% <span class="text-slate-500">mới ghi nhận</span>
+                        </p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-comments"></i>
+                    </div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder p-5 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Tỷ lệ Tích cực (Positive)</p>
+                        <h3 id="statPositive" class="text-2xl font-bold text-emerald-400 mt-1">{{ positive_rate if positive_rate is defined else '0%' }}</h3>
+                        <p class="text-xs text-emerald-400 mt-2 flex items-center gap-1">
+                            <i class="fa-solid fa-arrow-trend-up"></i> Mức độ hài lòng cao
+                        </p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-face-smile"></i>
+                    </div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder p-5 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Tỷ lệ Tiêu cực (Negative)</p>
+                        <h3 id="statNegative" class="text-2xl font-bold text-red-400 mt-1">{{ negative_rate if negative_rate is defined else '0%' }}</h3>
+                        <p class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                            Cần phản hồi xử lý
+                        </p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder p-5 rounded-xl flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Hiệu suất mô hình</p>
+                        <h3 class="text-2xl font-bold text-indigo-400 mt-1">{{ metrics.avg_f1 if metrics is defined and metrics.avg_f1 is defined else 'N/A' }}</h3>
+                        <p class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                            <i class="fa-solid fa-microchip text-indigo-400"></i> F1-Score PhoBERT
+                        </p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-bullseye"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI INSIGHT & MODEL EVALUATION -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- AI INSIGHT CARD -->
+                <div class="bg-gradient-to-br from-cardBg to-slate-900 border border-emerald-500/30 rounded-xl p-5 relative overflow-hidden shadow-lg">
+                    <div class="absolute -right-6 -bottom-6 text-emerald-500/10 text-9xl font-bold pointer-events-none">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="flex items-center gap-2.5 mb-4 border-b border-cardBorder pb-3">
+                        <span class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-lg">🤖</span>
+                        <h3 class="text-base font-bold text-white tracking-wide uppercase">AI INSIGHT</h3>
+                    </div>
+                    <div class="space-y-3 text-sm text-slate-300">
+                        <p class="text-xs text-slate-400 font-medium italic">Thống kê tự động trong ngày:</p>
+                        <ul class="space-y-2.5">
+                            <li class="flex items-start gap-2">
+                                <span class="text-emerald-400 font-bold">•</span>
+                                <span>Phần lớn phản hồi liên quan đến <strong class="text-emerald-400">cơ sở vật chất</strong>.</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-emerald-400 font-bold">•</span>
+                                <span><strong class="text-white">Điều hòa & Wifi</strong> là vấn đề được đề cập nhiều nhất.</span>
+                            </li>
+                        </ul>
+                        <div class="mt-4 p-3 bg-slate-800/80 rounded-lg border border-emerald-500/20 flex items-start gap-2 text-xs">
+                            <i class="fa-solid fa-lightbulb text-amber-400 text-sm mt-0.5"></i>
+                            <div>
+                                <span class="font-bold text-emerald-400">Đề xuất hệ thống:</span>
+                                <p class="text-slate-300 mt-0.5">Kiểm tra & bảo trì thiết bị tại các phòng học được phản ánh.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODEL EVALUATION CARD (CÓ NÚT UPLOAD FILE JSON METRICS) -->
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-3 border-b border-cardBorder pb-2">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-table-cells text-indigo-400"></i> Model Evaluation
+                            </h3>
+                            <p class="text-xs text-slate-400">Confusion Matrix kiểm chứng mô hình Machine Learning thực tế</p>
+                        </div>
+                        
+                        <!-- NÚT UPLOAD METRICS FILE JSON -->
+                        <div class="flex items-center gap-2">
+                            <input type="file" id="metricsFileInput" accept=".json" class="hidden" onchange="handleFileUpload(event)">
+                            <button onclick="document.getElementById('metricsFileInput').click()" 
+                                    title="Tải file model_metrics.json từ mô hình lên"
+                                    class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-upload"></i>
+                                <span>Upload Metrics</span>
+                            </button>
+                            <span class="text-[10px] font-mono px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded border border-indigo-500/20 hidden sm:inline-block">PhoBERT</span>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-center text-xs border-collapse">
+                            <thead>
+                                <tr>
+                                    <th class="p-2"></th>
+                                    <th colspan="3" class="p-1 font-mono text-slate-400 uppercase border-b border-cardBorder bg-slate-900/50">PREDICTED CLASS</th>
+                                </tr>
+                                <tr class="text-slate-400 font-mono text-[11px] border-b border-cardBorder">
+                                    <th class="p-2 text-left">Actual</th>
+                                    <th class="p-2 bg-emerald-500/5 text-emerald-400 font-bold">Pos</th>
+                                    <th class="p-2 bg-amber-500/5 text-amber-400 font-bold">Neu</th>
+                                    <th class="p-2 bg-red-500/5 text-red-400 font-bold">Neg</th>
+                                </tr>
+                            </thead>
+                            <tbody class="font-mono divide-y divide-cardBorder/40">
+                                <tr>
+                                    <td class="p-2 font-bold text-emerald-400 text-left bg-emerald-500/5">Pos</td>
+                                    <td class="p-2.5 font-bold text-emerald-400 bg-emerald-500/20 rounded">{{ metrics.matrix[0][0] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                    <td class="p-2.5 text-slate-400">{{ metrics.matrix[0][1] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                    <td class="p-2.5 text-slate-400">{{ metrics.matrix[0][2] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2 font-bold text-amber-400 text-left bg-amber-500/5">Neu</td>
+                                    <td class="p-2.5 text-slate-400">{{ metrics.matrix[1][0] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                    <td class="p-2.5 font-bold text-amber-400 bg-amber-500/20 rounded">{{ metrics.matrix[1][1] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                    <td class="p-2.5 text-slate-400">{{ metrics.matrix[1][2] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2 font-bold text-red-400 text-left bg-red-500/5">Neg</td>
+                                    <td class="p-2.5 text-slate-400">{{ metrics.matrix[2][0] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                    <td class="p-2.5 text-slate-400">{{ metrics.matrix[2][1] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                    <td class="p-2.5 font-bold text-red-400 bg-red-500/20 rounded">{{ metrics.matrix[2][2] if metrics is defined and metrics.matrix is defined else 0 }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-[11px] text-slate-400 italic mt-3 text-right">
+                        ⇒ Cập nhật trực tiếp từ tập dữ liệu Test thực tế.
+                    </p>
+                </div>
+            </div>
+
+            <!-- TOP KEYWORDS & ISSUES & PERFORMANCE -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Top Keywords -->
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="mb-4 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-base font-bold text-white">Top Keywords</h3>
+                                <p class="text-xs text-slate-400">Trích xuất từ các bình luận</p>
+                            </div>
+                            <i class="fa-solid fa-cloud text-emerald-400"></i>
+                        </div>
+                        <ul class="space-y-3.5">
+                            <li class="flex items-center justify-between text-xs">
+                                <span class="text-slate-200 font-medium w-24 truncate">điều hòa</span>
+                                <div class="flex-1 mx-3 bg-slate-800 rounded-full h-2">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: 85%"></div>
+                                </div>
+                                <span class="text-emerald-400 font-mono font-bold">45</span>
+                            </li>
+                            <li class="flex items-center justify-between text-xs">
+                                <span class="text-slate-200 font-medium w-24 truncate">wifi</span>
+                                <div class="flex-1 mx-3 bg-slate-800 rounded-full h-2">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: 65%"></div>
+                                </div>
+                                <span class="text-emerald-400 font-mono font-bold">30</span>
+                            </li>
+                            <li class="flex items-center justify-between text-xs">
+                                <span class="text-slate-200 font-medium w-24 truncate">phòng học</span>
+                                <div class="flex-1 mx-3 bg-slate-800 rounded-full h-2">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: 52%"></div>
+                                </div>
+                                <span class="text-emerald-400 font-mono font-bold">25</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-cardBorder">
+                        <a href="{{ url_for('wordcloud') }}" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center justify-center gap-1.5 transition">
+                            Xem Word Cloud <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- TOP ISSUES -->
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 border-l-4 border-l-red-500 flex flex-col">
+                    <div class="mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+                        <h3 class="text-base font-bold text-white">TOP ISSUES</h3>
+                        <p class="text-xs text-slate-400 ml-auto">Vấn đề cần ưu tiên</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="bg-slate-800/40 p-3 rounded-lg border border-red-500/20">
+                            <div class="flex justify-between items-start">
+                                <h4 class="text-sm font-bold text-red-400">1. Điều hòa hỏng</h4>
+                                <span class="text-xs font-mono text-slate-400">18 phản ánh</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800/40 p-3 rounded-lg border border-orange-500/20">
+                            <div class="flex justify-between items-start">
+                                <h4 class="text-sm font-bold text-orange-400">2. Mạng Wifi yếu</h4>
+                                <span class="text-xs font-mono text-slate-400">12 phản ánh</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODEL PERFORMANCE (LẤY DỮ LIỆU ĐỘNG TỪ METRICS) -->
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="mb-4">
+                            <h3 class="text-base font-bold text-white">Model Performance</h3>
+                            <p class="text-xs text-slate-400">Đánh giá Precision, Recall & F1-Score thực tế</p>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-center text-xs border-collapse">
+                                <thead>
+                                    <tr class="border-b border-cardBorder font-mono text-slate-400 uppercase">
+                                        <th class="p-2 text-left">Task</th>
+                                        <th class="p-2 text-indigo-400">Precision</th>
+                                        <th class="p-2 text-blue-400">Recall</th>
+                                        <th class="p-2 text-emerald-400">F1</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-cardBorder/50 font-mono text-slate-200">
+                                    <tr class="hover:bg-slate-800/30">
+                                        <td class="p-2.5 text-left font-bold text-slate-300">Sentiment</td>
+                                        <td class="p-2.5 text-indigo-400">{{ metrics.sentiment.precision if metrics is defined and metrics.sentiment is defined else 'N/A' }}</td>
+                                        <td class="p-2.5 text-blue-400">{{ metrics.sentiment.recall if metrics is defined and metrics.sentiment is defined else 'N/A' }}</td>
+                                        <td class="p-2.5 font-bold text-emerald-400 bg-emerald-500/10 rounded">{{ metrics.sentiment.f1 if metrics is defined and metrics.sentiment is defined else 'N/A' }}</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-800/30">
+                                        <td class="p-2.5 text-left font-bold text-slate-300">Topic</td>
+                                        <td class="p-2.5 text-indigo-400">{{ metrics.topic.precision if metrics is defined and metrics.topic is defined else 'N/A' }}</td>
+                                        <td class="p-2.5 text-blue-400">{{ metrics.topic.recall if metrics is defined and metrics.topic is defined else 'N/A' }}</td>
+                                        <td class="p-2.5 font-bold text-emerald-400 bg-emerald-500/10 rounded">{{ metrics.topic.f1 if metrics is defined and metrics.topic is defined else 'N/A' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-[11px] text-slate-400 flex items-center justify-between border-t border-cardBorder pt-2">
+                        <span>Trung bình F1: <strong class="text-emerald-400 font-mono">{{ metrics.avg_f1 if metrics is defined and metrics.avg_f1 is defined else 'N/A' }}</strong></span>
+                        <span class="text-indigo-400">MultiTask PhoBERT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHARTS ROW -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-cardBg border border-cardBorder rounded-xl p-5 flex flex-col justify-between">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Diễn biến Sắc thái theo Khung giờ</h3>
+                            <p class="text-xs text-slate-400">Số lượng phản hồi ghi nhận được</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <span class="flex items-center gap-1 text-xs text-emerald-400 font-medium"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Tích cực</span>
+                            <span class="flex items-center gap-1 text-xs text-red-400 font-medium"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span> Tiêu cực</span>
+                        </div>
+                    </div>
+                    <div class="h-72 w-full">
+                        <canvas id="sentimentTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 flex flex-col justify-between">
+                    <div class="mb-2">
+                        <h3 class="text-base font-bold text-white">Tỷ trọng theo Chủ đề</h3>
+                        <p class="text-xs text-slate-400">Tỷ lệ các vấn đề được gửi đến</p>
+                    </div>
+                    <div class="h-64 w-full relative flex items-center justify-center">
+                        <canvas id="topicPieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETAILED SUMMARY TABLE -->
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-white">Bảng Thống kê Tổng hợp theo Khoa</h3>
+                        <p class="text-xs text-slate-400">Chi tiết số liệu tích cực, tiêu cực và tỷ lệ giải quyết</p>
+                    </div>
+                    <input type="text" id="tableSearch" onkeyup="filterTable()" placeholder="Lọc theo tên khoa..." class="bg-slate-900 border border-cardBorder text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#10b981] w-full sm:w-60">
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/80 uppercase font-mono text-slate-400 border-b border-cardBorder">
+                            <tr>
+                                <th class="p-3">Khoa / Đơn vị</th>
+                                <th class="p-3 text-center">Tổng ý kiến</th>
+                                <th class="p-3 text-center">Tích cực</th>
+                                <th class="p-3 text-center">Tiêu cực</th>
+                                <th class="p-3 text-center">Trung tính</th>
+                                <th class="p-3 text-right">Đánh giá chung</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facultyTableBody" class="divide-y divide-cardBorder/60 font-medium">
+                            {% if faculty_stats is defined %}
+                            {% for item in faculty_stats %}
+                            <tr class="hover:bg-slate-800/40 transition" data-faculty="{{ item.code }}">
+                                <td class="p-3 font-bold text-slate-100 flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full {{ item.dot_color }}"></span> {{ item.name }}
+                                </td>
+                                <td class="p-3 text-center font-mono">{{ item.total }}</td>
+                                <td class="p-3 text-center text-emerald-400 font-mono">{{ item.positive }}</td>
+                                <td class="p-3 text-center text-red-400 font-mono">{{ item.negative }}</td>
+                                <td class="p-3 text-center text-amber-400 font-mono">{{ item.neutral }}</td>
+                                <td class="p-3 text-right">
+                                    <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        {{ item.evaluation }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ================= 3. JAVASCRIPT LOGIC ================= -->
+    <script>
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#1f293d';
+        Chart.defaults.font.family = 'ui-sans-serif, system-ui, sans-serif';
+
+        let trendChart, pieChart;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initSentimentTrendChart();
+            initTopicPieChart();
+        });
+
+        // Xử lý Upload file JSON Metrics trực tiếp
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload-metrics', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    window.location.reload(); // Reload lại trang để cập nhật thông số mới
+                } else {
+                    alert('❌ ' + result.message);
+                }
+            } catch (error) {
+                alert('❌ Lỗi kết nối khi tải file!');
+                console.error(error);
+            }
+        }
+
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById("mainSidebar");
+            const overlay = document.getElementById("sidebarOverlay");
+            sidebar.classList.toggle("-translate-x-full");
+            overlay.classList.toggle("hidden");
+        }
+
+        function applyAllFilters() {
+            const faculty = document.getElementById("facultyFilterSelect").value;
+            const timeRange = document.getElementById("timeRangeSelect").value;
+
+            updateChartAndKPIByFilter(faculty, timeRange);
+
+            const rows = document.querySelectorAll("#facultyTableBody tr");
+            rows.forEach(row => {
+                const rFaculty = row.getAttribute("data-faculty");
+                let matchFaculty = (faculty === "all" || !rFaculty || rFaculty === faculty);
+                row.style.display = matchFaculty ? "" : "none";
+            });
+        }
+
+        function updateChartAndKPIByFilter(faculty, timeRange) {
+            const statTotal = document.getElementById('statTotal');
+            let multiplier = (faculty !== 'all' ? 0.35 : 1);
+
+            if (timeRange === 'today') {
+                if(statTotal) statTotal.innerText = Math.round(120 * multiplier);
+                trendChart.data.labels = ['8h', '10h', '12h', '14h', '16h', '18h'];
+                trendChart.data.datasets[0].data = [10, 25, 40, 30, 20, 15].map(v => Math.round(v * multiplier));
+                trendChart.data.datasets[1].data = [2, 5, 8, 4, 3, 1].map(v => Math.round(v * multiplier));
+            } else {
+                if(statTotal) statTotal.innerText = Math.round(150 * multiplier);
+                trendChart.data.labels = ['Hôm qua', 'Hôm nay'];
+                trendChart.data.datasets[0].data = [30, 110].map(v => Math.round(v * multiplier));
+                trendChart.data.datasets[1].data = [5, 23].map(v => Math.round(v * multiplier));
+            }
+            
+            trendChart.update();
+        }
+
+        function initSentimentTrendChart() {
+            const ctx = document.getElementById('sentimentTrendChart').getContext('2d');
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['8h', '10h', '12h', '14h', '16h', '18h'],
+                    datasets: [
+                        { label: 'Tích cực', data: [10, 25, 40, 30, 20, 15], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.35, borderWidth: 2 },
+                        { label: 'Tiêu cực', data: [2, 5, 8, 4, 3, 1], borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)', fill: true, tension: 0.35, borderWidth: 2 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#1f293d' } }, x: { grid: { display: false } } } }
+            });
+        }
+
+        function initTopicPieChart() {
+            const ctx = document.getElementById('topicPieChart').getContext('2d');
+            pieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Cơ sở vật chất', 'Giảng viên', 'Chương trình đào tạo', 'Khác'],
+                    datasets: [{ data: [55, 25, 12, 8], backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6', '#64748b'], borderWidth: 2, borderColor: '#111827' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, padding: 12 } } }, cutout: '68%' }
+            });
+        }
+
+        function filterTable() {
+            const input = document.getElementById("tableSearch").value.toLowerCase();
+            const rows = document.querySelectorAll("#facultyTableBody tr");
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(input) ? "" : "none";
+            });
+        }
+
+        function exportCSV() {
+            const table = document.getElementById("facultyTableBody");
+            let csv = [];
+            csv.push(["Khoa / Đơn vị", "Tổng ý kiến", "Tích cực", "Tiêu cực", "Trung tính", "Đánh giá chung"].map(e => `"${e}"`).join(","));
+
+            const rows = table.querySelectorAll("tr");
+            rows.forEach(row => {
+                if (row.style.display !== "none") {
+                    let rowData = [];
+                    const cols = row.querySelectorAll("td");
+                    if(cols.length > 1) {
+                        cols.forEach(col => {
+                            let text = col.innerText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+                            rowData.push(`"${text}"`);
+                        });
+                        csv.push(rowData.join(","));
+                    }
+                }
+            });
+
+            const csvContent = "\uFEFF" + csv.join("\n");
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `thong_ke_phan_hoi.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
