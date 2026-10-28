@@ -1,27 +1,13 @@
+# SQL Server Management Studio temporary files
+SQL/.vs/
+*.ssms_suo
 
 # Python cache
 __pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
+*.pyc
 
-# Local configuration and secrets
-.env
-.env.*
-!.env.example
+# Large AI model
+phobert_multitask_best.pt
 
-# Local database (may contain private data)
+# Local database
 feedback.db
-
-# Large AI model (upload separately if needed)
-phobert_multitask_best.pt
-
-# Logs
-*.log
-
-# IDE
-.vscode/
-.idea/
-
-phobert_multitask_best.pt
